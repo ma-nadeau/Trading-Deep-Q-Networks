@@ -14,5 +14,7 @@ tabulate
 pytorch
 tensorboard
 
+yfinance
+
 # OpenAI Gym RL framework
 gym

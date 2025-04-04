@@ -17,6 +17,7 @@ import requests
 
 from io import StringIO
 
+import yfinance as yf
 
 
 ###############################################################################
@@ -50,7 +51,7 @@ class AlphaVantage:
         """
         
         self.link = 'https://www.alphavantage.co/query'
-        self.apikey = 'APIKEY'
+        self.apikey = 'QII15G40KCLB7QQK'
         self.datatype = 'csv'
         self.outputsize = 'full'
         self.data = pd.DataFrame()
@@ -75,6 +76,7 @@ class AlphaVantage:
         
         # Process the CSV file retrieved
         csvText = StringIO(response.text)
+        print(csvText)
         data = pd.read_csv(csvText, index_col='timestamp')
         
         # Process the dataframe to homogenize the output format
@@ -192,8 +194,12 @@ class YahooFinance:
         OUTPUTS:    - data: Pandas dataframe containing the stock market data.
         """
         
-        data = pdr.data.DataReader(marketSymbol, 'yahoo', startingDate, endingDate)
+        #data = pdr.data.DataReader(marketSymbol, 'yahoo', startingDate, endingDate)
+        
+        data = yf.download(marketSymbol, start=startingDate, end=endingDate, auto_adjust=False)
+        
         self.data = self.processDataframe(data)
+        print('Data processed:', self.data)
         return self.data
 
 
