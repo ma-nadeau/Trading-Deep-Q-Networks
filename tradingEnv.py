@@ -23,7 +23,6 @@ from matplotlib import pyplot as plt
 from dataDownloader import AlphaVantage
 from dataDownloader import YahooFinance
 from dataDownloader import CSVHandler
-from fictiveStockGenerator import StockGenerator
 
 
 
@@ -134,12 +133,22 @@ class TradingEnv(gym.Env):
         self.data['Returns'] = 0.
 
         # Set the RL variables common to every OpenAI gym environments
-        self.state = [self.data['Close'][0:stateLength].tolist(),
+        """   self.state = [self.data['Close'][0:stateLength].tolist(),
                       self.data['Low'][0:stateLength].tolist(),
                       self.data['High'][0:stateLength].tolist(),
                       self.data['Volume'][0:stateLength].tolist(),
-                      [0]]
-        self.reward = 0.
+                      [0]]"""
+
+        # Set the RL variables common to every OpenAI gym environment
+        self.state = [
+            self.data['Close'].iloc[0:stateLength].squeeze().tolist(),
+            self.data['Low'].iloc[0:stateLength].squeeze().tolist(),
+            self.data['High'].iloc[0:stateLength].squeeze().tolist(),
+            self.data['Volume'].iloc[0:stateLength].squeeze().tolist(),
+            [0]  # Add padding or any additional state value
+        ]
+
+        self.reward = 0
         self.done = 0
 
         # Set additional variables related to the trading activity

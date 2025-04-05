@@ -14,6 +14,8 @@ import argparse
 
 from tradingSimulator import TradingSimulator
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 ###############################################################################
@@ -25,22 +27,22 @@ if(__name__ == '__main__'):
     # Retrieve the paramaters sent by the user
     parser = argparse.ArgumentParser(description='')
     parser.add_argument("-strategy", default='TDQN', type=str, help="Name of the trading strategy")
-    parser.add_argument("-stock", default='S&P 500', type=str, help="Name of the stock (market)")
+    parser.add_argument("-stock", default='Apple', type=str, help="Name of the stock (market)")
     print(parser)
     args = parser.parse_args()
     
     # Initialization of the required variables
     simulator = TradingSimulator()
-    strategy = args.strategy
+    strategyAi = args.strategy
     stock = args.stock
 
     # Training and testing of the trading strategy specified for the stock (market) specified
-    simulator.simulateNewStrategy(strategy, stock, saveStrategy=False)
+    simulator.simulateNewStrategy('TDQN', stock, showPerformance=True, saveStrategy=False)
     
-    simulator.displayTestbench()
+    #simulator.displayTestbench()
     # simulator.analyseTimeSeries(stock)
     # simulator.simulateNewStrategy(strategy, stock, saveStrategy=False)
-    # simulator.simulateExistingStrategy(strategy, stock)
-    # simulator.evaluateStrategy(strategy, saveStrategy=False)
-    # simulator.evaluateStock(stock)
+    #simulator.simulateExistingStrategy('TDQN', stock)
+   # simulator.evaluateStrategy('TDQN', saveStrategy=False)
+   # simulator.evaluateStock('Apple')
     
