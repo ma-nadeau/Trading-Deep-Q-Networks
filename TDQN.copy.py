@@ -165,83 +165,87 @@ class ReplayMemory:
 ###############################################################################
 ################################### Class DQN #################################
 ###############################################################################
-class NoisyLinear(nn.Module):
-    def __init__(self, in_features, out_features, std_init=0.5):
-        super(NoisyLinear, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        self.std_init = std_init
 
-        self.weight_mu = nn.Parameter(torch.FloatTensor(out_features, in_features))
-        self.weight_sigma = nn.Parameter(torch.FloatTensor(out_features, in_features))
-        self.register_buffer("weight_epsilon", torch.FloatTensor(out_features, in_features))
+class DQN(nn.Module):
+    """
+    GOAL: Implementing the Deep Neural Network of the DQN Reinforcement
+          Learning algorithm.
 
-        self.bias_mu = nn.Parameter(torch.FloatTensor(out_features))
-        self.bias_sigma = nn.Parameter(torch.FloatTensor(out_features))
-        self.register_buffer("bias_epsilon", torch.FloatTensor(out_features))
+    VARIABLES:  - fc1: Fully Connected layer number 1.
+                - fc2: Fully Connected layer number 2.
+                - fc3: Fully Connected layer number 3.
+                - fc4: Fully Connected layer number 4.
+                - fc5: Fully Connected layer number 5.
+                - dropout1: Dropout layer number 1.
+                - dropout2: Dropout layer number 2.
+                - dropout3: Dropout layer number 3.
+                - dropout4: Dropout layer number 4.
+                - bn1: Batch normalization layer number 1.
+                - bn2: Batch normalization layer number 2.
+                - bn3: Batch normalization layer number 3.
+                - bn4: Batch normalization layer number 4.
 
-        self.reset_parameters()
-        self.reset_noise()
+    METHODS:    - __init__: Initialization of the Deep Neural Network.
+                - forward: Forward pass of the Deep Neural Network.
+    """
 
-    def reset_parameters(self):
-        mu_range = 1 / math.sqrt(self.in_features)
-        self.weight_mu.data.uniform_(-mu_range, mu_range)
-        self.weight_sigma.data.fill_(self.std_init / math.sqrt(self.in_features))
-        self.bias_mu.data.uniform_(-mu_range, mu_range)
-        self.bias_sigma.data.fill_(self.std_init / math.sqrt(self.out_features))
+    def __init__(self, numberOfInputs, numberOfOutputs, numberOfNeurons=numberOfNeurons, dropout=dropout):
+        """
+        GOAL: Defining and initializing the Deep Neural Network of the
+              DQN Reinforcement Learning algorithm.
 
-    def reset_noise(self):
-        self.weight_epsilon.normal_()
-        self.bias_epsilon.normal_()
+        INPUTS: - numberOfInputs: Number of inputs of the Deep Neural Network.
+                - numberOfOutputs: Number of outputs of the Deep Neural Network.
+                - numberOfNeurons: Number of neurons per layer in the Deep Neural Network.
+                - dropout: Droupout probability value (handling of overfitting).
 
-    def forward(self, x):
-        if self.training:
-            weight = self.weight_mu + self.weight_sigma * self.weight_epsilon
-            bias = self.bias_mu + self.bias_sigma * self.bias_epsilon
-        else:
-            weight = self.weight_mu
-            bias = self.bias_mu
-        return F.linear(x, weight, bias)
+        OUTPUTS: /
+        """
 
+        # Call the constructor of the parent class (Pytorch torch.nn.Module)
+        super(DQN, self).__init__()
 
-class DuelingDQN(nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_dim=512, dropout=dropout):
-        super(DuelingDQN, self).__init__()
+        # Definition of some Fully Connected layers
+        self.fc1 = nn.Linear(numberOfInputs, numberOfNeurons)
+        self.fc2 = nn.Linear(numberOfNeurons, numberOfNeurons)
+        self.fc3 = nn.Linear(numberOfNeurons, numberOfNeurons)
+        self.fc4 = nn.Linear(numberOfNeurons, numberOfNeurons)
+        self.fc5 = nn.Linear(numberOfNeurons, numberOfOutputs)
 
-        self.feature = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout)
-        )
+        # Definition of some Batch Normalization layers
+        self.bn1 = nn.BatchNorm1d(numberOfNeurons)
+        self.bn2 = nn.BatchNorm1d(numberOfNeurons)
+        self.bn3 = nn.BatchNorm1d(numberOfNeurons)
+        self.bn4 = nn.BatchNorm1d(numberOfNeurons)
 
-        self.value_stream = nn.Sequential(
-            NoisyLinear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            NoisyLinear(hidden_dim, 1)
-        )
+        # Definition of some Dropout layers.
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+        self.dropout3 = nn.Dropout(dropout)
+        self.dropout4 = nn.Dropout(dropout)
 
-        self.advantage_stream = nn.Sequential(
-            NoisyLinear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            NoisyLinear(hidden_dim, output_dim)
-        )
+        # Xavier initialization for the entire neural network
+        torch.nn.init.xavier_uniform_(self.fc1.weight)
+        torch.nn.init.xavier_uniform_(self.fc2.weight)
+        torch.nn.init.xavier_uniform_(self.fc3.weight)
+        torch.nn.init.xavier_uniform_(self.fc4.weight)
+        torch.nn.init.xavier_uniform_(self.fc5.weight)
 
-    def forward(self, x):
-        x = self.feature(x)
-        value = self.value_stream(x)
-        advantage = self.advantage_stream(x)
-        return value + (advantage - advantage.mean(dim=1, keepdim=True))
+    def forward(self, input):
+        """
+        GOAL: Implementing the forward pass of the Deep Neural Network.
 
-    def reset_noise(self):
-        for layer in self.value_stream:
-            if isinstance(layer, NoisyLinear):
-                layer.reset_noise()
-        for layer in self.advantage_stream:
-            if isinstance(layer, NoisyLinear):
-                layer.reset_noise()
+        INPUTS: - input: Input of the Deep Neural Network.
 
+        OUTPUTS: - output: Output of the Deep Neural Network.
+        """
+
+        x = self.dropout1(F.leaky_relu(self.bn1(self.fc1(input))))
+        x = self.dropout2(F.leaky_relu(self.bn2(self.fc2(x))))
+        x = self.dropout3(F.leaky_relu(self.bn3(self.fc3(x))))
+        x = self.dropout4(F.leaky_relu(self.bn4(self.fc4(x))))
+        output = self.fc5(x)
+        return output
 
 
 ###############################################################################
@@ -347,8 +351,8 @@ class TDQN:
         self.actionSpace = actionSpace
 
         # Set the two Deep Neural Networks of the DQN algorithm (policy and target)
-        self.policyNetwork = DuelingDQN(observationSpace, actionSpace, numberOfNeurons).to(self.device)
-        self.targetNetwork = DuelingDQN(observationSpace, actionSpace, numberOfNeurons).to(self.device)
+        self.policyNetwork = DQN(observationSpace, actionSpace, numberOfNeurons, dropout).to(self.device)
+        self.targetNetwork = DQN(observationSpace, actionSpace, numberOfNeurons, dropout).to(self.device)
         self.targetNetwork.load_state_dict(self.policyNetwork.state_dict())
         self.policyNetwork.eval()
         self.targetNetwork.eval()
@@ -509,6 +513,42 @@ class TDQN:
             QValues = QValues.cpu().numpy()
             return action, Q, QValues
 
+    def chooseActionEpsilonGreedy(self, state, previousAction):
+        """
+        GOAL: Choose a valid RL action from the action space according to the
+              RL policy as well as the current RL state observed, following the
+              Epsilon Greedy exploration mechanism.
+
+        INPUTS: - state: RL state returned by the environment.
+                - previousAction: Previous RL action executed by the agent.
+
+        OUTPUTS: - action: RL action chosen from the action space.
+                 - Q: State-action value function associated.
+                 - QValues: Array of all the Qvalues outputted by the
+                            Deep Neural Network.
+        """
+
+        # EXPLOITATION -> RL policy
+        if (random.random() > self.epsilonValue(self.iterations)):
+            # Sticky action (RL generalization mechanism)
+            if (random.random() > alpha):
+                action, Q, QValues = self.chooseAction(state)
+            else:
+                action = previousAction
+                Q = 0
+                QValues = [0, 0]
+
+        # EXPLORATION -> Random
+        else:
+            action = random.randrange(self.actionSpace)
+            Q = 0
+            QValues = [0, 0]
+
+        # Increment the iterations counter (for Epsilon Greedy)
+        self.iterations += 1
+
+        return action, Q, QValues
+
     def learning(self, batchSize=batchSize):
         """
         GOAL: Sample a batch of past experiences and learn from it
@@ -523,8 +563,6 @@ class TDQN:
         if (len(self.replayMemory) >= batchSize):
             # Set the Deep Neural Network in training mode
             self.policyNetwork.train()
-            self.policyNetwork.reset_noise()
-            self.targetNetwork.reset_noise()
 
             # Sample a batch of experiences from the replay memory
             state, action, reward, nextState, done = self.replayMemory.sample(batchSize)
@@ -563,7 +601,6 @@ class TDQN:
 
             # Set back the Deep Neural Network in evaluation mode
             self.policyNetwork.eval()
-
 
     def training(self, trainingEnv, trainingParameters=[],
                  verbose=False, rendering=False, plotTraining=False, showPerformance=False):
@@ -635,11 +672,10 @@ class TDQN:
 
                     # Interact with the training environment until termination
                     while done == 0:
-                        self.policyNetwork.train()
 
                         # Choose an action according to the RL policy and the current RL state
-                        #action, _, _ = self.chooseActionEpsilonGreedy(state, previousAction)
-                        action, _, _ = self.chooseAction(state)
+                        action, _, _ = self.chooseActionEpsilonGreedy(state, previousAction)
+
                         # Interact with the environment with the chosen action
                         nextState, reward, done, info = trainingEnvList[i].step(action)
 
@@ -755,8 +791,6 @@ class TDQN:
         # Interact with the environment until the episode termination
         while done == 0:
             # Choose an action according to the RL policy and the current RL state
-            self.policyNetwork.eval()
-
             action, _, QValues = self.chooseAction(state)
 
             # Interact with the environment with the chosen action
@@ -882,10 +916,9 @@ class TDQN:
 
                         # Interact with the training environment until termination
                         while done == 0:
-                            self.policyNetwork.train()  # Ensure noise is active
 
                             # Choose an action according to the RL policy and the current RL state
-                            action, _, _ = self.chooseAction(state)
+                            action, _, _ = self.chooseActionEpsilonGreedy(state, previousAction)
 
                             # Interact with the environment with the chosen action
                             nextState, reward, done, info = trainingEnvList[i].step(action)

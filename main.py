@@ -37,7 +37,7 @@ if(__name__ == '__main__'):
     stock = args.stock
 
     # Training and testing of the trading strategy specified for the stock (market) specified
-    simulator.simulateNewStrategy('TDQN', stock, showPerformance=True, saveStrategy=False)
+    simulator.simulateNewStrategy('TDQN', stock, numberOfEpisodes=50, showPerformance=True, saveStrategy=False)
     
     #simulator.displayTestbench()
     # simulator.analyseTimeSeries(stock)
