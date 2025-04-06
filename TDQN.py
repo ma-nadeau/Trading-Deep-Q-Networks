@@ -21,6 +21,7 @@ import numpy as np
 from collections import deque
 from tqdm import tqdm
 from matplotlib import pyplot as plt
+from cpprb import PrioritizedReplayBuffer
 
 import torch
 import torch.nn as nn
@@ -340,7 +341,18 @@ class TDQN:
         # Set the Experience Replay mechnism
         self.capacity = capacity
         self.batchSize = batchSize
-        self.replayMemory = ReplayMemory(capacity)
+        #self.replayMemory = ReplayMemory(capacity)
+        self.replayMemory = PrioritizedReplayBuffer(
+            size=capacity,
+            env_dict={
+                "state": {"shape": observationSpace},
+                "next_state": {"shape": observationSpace},
+                "action": {},
+                "reward": {},
+                "done": {}
+            },
+            alpha=0.5  # Controls prioritization strength
+        )
 
         # Set both the observation and action spaces
         self.observationSpace = observationSpace
@@ -468,7 +480,7 @@ class TDQN:
         OUTPUTS: - reward: Process RL reward.
         """
 
-        return np.clip(reward, -rewardClipping, rewardClipping)
+        return np.tanh(reward)  # or just return reward
 
     def updateTargetNetwork(self):
         """
@@ -520,37 +532,82 @@ class TDQN:
         """
 
         # Check that the replay memory is filled enough
-        if (len(self.replayMemory) >= batchSize):
+        if self.replayMemory.get_stored_size() >= batchSize:
             # Set the Deep Neural Network in training mode
             self.policyNetwork.train()
             self.policyNetwork.reset_noise()
             self.targetNetwork.reset_noise()
 
             # Sample a batch of experiences from the replay memory
-            state, action, reward, nextState, done = self.replayMemory.sample(batchSize)
+            #state, action, reward, nextState, done = self.replayMemory.sample(batchSize)
+            sample = self.replayMemory.sample(batchSize, beta=0.4)
+
+            state = torch.tensor(sample["state"], dtype=torch.float32, device=self.device)
+            nextState = torch.tensor(sample["next_state"], dtype=torch.float32, device=self.device)
+            action = torch.tensor(sample["action"], dtype=torch.long, device=self.device)
+            reward = torch.tensor(sample["reward"], dtype=torch.float32, device=self.device)
+            done = torch.tensor(sample["done"], dtype=torch.float32, device=self.device)
+            weights = torch.tensor(sample["weights"], dtype=torch.float32, device=self.device)
+            indexes = sample["indexes"]
 
             # Initialization of Pytorch tensors for the RL experience elements
-            state = torch.tensor(state, dtype=torch.float, device=self.device)
-            action = torch.tensor(action, dtype=torch.long, device=self.device)
-            reward = torch.tensor(reward, dtype=torch.float, device=self.device)
-            nextState = torch.tensor(nextState, dtype=torch.float, device=self.device)
-            done = torch.tensor(done, dtype=torch.float, device=self.device)
+            #state = torch.tensor(state, dtype=torch.float, device=self.device)
+            ##action = torch.tensor(action, dtype=torch.long, device=self.device)
+            #reward = torch.tensor(reward, dtype=torch.float, device=self.device)
+            #nextState = torch.tensor(nextState, dtype=torch.float, device=self.device)
+            #done = torch.tensor(done, dtype=torch.float, device=self.device)
+
+            # Make sure action is a 1D tensor: shape [batch_size]
+            if action.ndim > 1:
+                action = action.squeeze()
+            if action.ndim == 1:
+                action = action.view(-1, 1)
+
+            # Get Q-values from policy network: shape [batch_size, num_actions]
+            q_values = self.policyNetwork(state)
+
+            # Use gather to select Q-values for taken actions
+            currentQValues = q_values.gather(1, action).squeeze(1)
+
+            with torch.no_grad():
+                # Get the best actions from the policy network (Double DQN)
+                nextQ_policy = self.policyNetwork(nextState)
+                nextActions = torch.argmax(nextQ_policy, dim=1, keepdim=True)  # shape: [batch_size, 1]
+
+
+
+                # Get Q-values from the target network
+                nextQ_target = self.targetNetwork(nextState)
+                nextQValues = nextQ_target.gather(1, nextActions).squeeze(1)  # shape: [batch_size]
+
+                reward = reward.view(-1)
+                done = done.view(-1)
+                nextQValues = nextQValues.view(-1)
+
+                # Compute expected Q-values
+                expectedQValues = reward + self.gamma * nextQValues * (1 - done)
+
+            loss = (F.smooth_l1_loss(currentQValues, expectedQValues, reduction='none') * weights).mean()
 
             # Compute the current Q values returned by the policy network
-            currentQValues = self.policyNetwork(state).gather(1, action.unsqueeze(1)).squeeze(1)
+           # currentQValues = self.policyNetwork(state).gather(1, action.unsqueeze(1)).squeeze(1)
 
             # Compute the next Q values returned by the target network
-            with torch.no_grad():
-                nextActions = torch.max(self.policyNetwork(nextState), 1)[1]
-                nextQValues = self.targetNetwork(nextState).gather(1, nextActions.unsqueeze(1)).squeeze(1)
-                expectedQValues = reward + gamma * nextQValues * (1 - done)
+           # with torch.no_grad():
+              #  nextActions = torch.max(self.policyNetwork(nextState), 1)[1]
+              #  nextQValues = self.targetNetwork(nextState).gather(1, nextActions.unsqueeze(1)).squeeze(1)
+              #  expectedQValues = reward + gamma * nextQValues * (1 - done)
 
             # Compute the Huber loss
-            loss = F.smooth_l1_loss(currentQValues, expectedQValues)
+           # loss = F.smooth_l1_loss(currentQValues, expectedQValues)
 
             # Computation of the gradients
             self.optimizer.zero_grad()
             loss.backward()
+
+            with torch.no_grad():
+                td_errors = torch.abs(currentQValues - expectedQValues).cpu().numpy()
+            self.replayMemory.update_priorities(indexes, td_errors)
 
             # Gradient Clipping
             torch.nn.utils.clip_grad_norm_(self.policyNetwork.parameters(), gradientClipping)
@@ -646,14 +703,28 @@ class TDQN:
                         # Process the RL variables retrieved and insert this new experience into the Experience Replay memory
                         reward = self.processReward(reward)
                         nextState = self.processState(nextState, coefficients)
-                        self.replayMemory.push(state, action, reward, nextState, done)
+                        #self.replayMemory.push(state, action, reward, nextState, done)
+                        self.replayMemory.add(
+                            state=np.array(state, dtype=np.float32),
+                            action=int(action),
+                            reward=float(reward),
+                            next_state=np.array(nextState, dtype=np.float32),
+                            done=float(done)
+                        )
 
                         # Trick for better exploration
                         otherAction = int(not bool(action))
                         otherReward = self.processReward(info['Reward'])
                         otherNextState = self.processState(info['State'], coefficients)
                         otherDone = info['Done']
-                        self.replayMemory.push(state, otherAction, otherReward, otherNextState, otherDone)
+                        #self.replayMemory.push(state, otherAction, otherReward, otherNextState, otherDone)
+                        self.replayMemory.add(
+                            state=np.array(state, dtype=np.float32),
+                            action=int(action),
+                            reward=float(reward),
+                            next_state=np.array(nextState, dtype=np.float32),
+                            done=float(done)
+                        )
 
                         # Execute the DQN learning procedure
                         stepsCounter += 1
@@ -893,14 +964,28 @@ class TDQN:
                             # Process the RL variables retrieved and insert this new experience into the Experience Replay memory
                             reward = self.processReward(reward)
                             nextState = self.processState(nextState, coefficients)
-                            self.replayMemory.push(state, action, reward, nextState, done)
+                            #self.replayMemory.push(state, action, reward, nextState, done)
+                            self.replayMemory.add(
+                                state=np.array(state, dtype=np.float32),
+                                action=int(action),
+                                reward=float(reward),
+                                next_state=np.array(nextState, dtype=np.float32),
+                                done=float(done)
+                            )
 
                             # Trick for better exploration
                             otherAction = int(not bool(action))
                             otherReward = self.processReward(info['Reward'])
                             otherDone = info['Done']
                             otherNextState = self.processState(info['State'], coefficients)
-                            self.replayMemory.push(state, otherAction, otherReward, otherNextState, otherDone)
+                            #self.replayMemory.push(state, otherAction, otherReward, otherNextState, otherDone)
+                            self.replayMemory.add(
+                                state=np.array(state, dtype=np.float32),
+                                action=int(action),
+                                reward=float(reward),
+                                next_state=np.array(nextState, dtype=np.float32),
+                                done=float(done)
+                            )
 
                             # Execute the DQN learning procedure
                             stepsCounter += 1
