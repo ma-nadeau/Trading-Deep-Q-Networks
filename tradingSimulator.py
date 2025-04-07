@@ -68,12 +68,12 @@ fictives = {
 # Dictionary listing the 30 stocks considered as testbench
 stocks = {
     # 'Dow Jones': 'DIA',
-    # 'S&P 500': 'SPY',
+    'S&P 500': 'SPY',
     # 'NASDAQ 100': 'QQQ',
     # 'FTSE 100': 'EZU',
     # 'Nikkei 225': 'EWJ',
     # 'Google': 'GOOGL',
-    'Apple': 'AAPL',
+    # 'Apple': 'AAPL',
     # 'Facebook': 'FB',
     # 'Amazon': 'AMZN',
     # 'Microsoft': 'MSFT',

@@ -205,47 +205,46 @@ class DQN(nn.Module):
         # Call the constructor of the parent class (Pytorch torch.nn.Module)
         super(DQN, self).__init__()
 
-        # Definition of some Fully Connected layers
-        self.fc1 = nn.Linear(numberOfInputs, numberOfNeurons)
-        self.fc2 = nn.Linear(numberOfNeurons, numberOfNeurons)
-        self.fc3 = nn.Linear(numberOfNeurons, numberOfNeurons)
-        self.fc4 = nn.Linear(numberOfNeurons, numberOfNeurons)
-        self.fc5 = nn.Linear(numberOfNeurons, numberOfOutputs)
+                # Fully connected layers
+        self.fcs = nn.ModuleList([
+            nn.Linear(numberOfInputs, numberOfNeurons),
+            nn.Linear(numberOfNeurons, numberOfNeurons),
+            nn.Linear(numberOfNeurons, numberOfNeurons),
+            nn.Linear(numberOfNeurons, numberOfNeurons),
+            nn.Linear(numberOfNeurons, numberOfOutputs)
+        ])
 
-        # Definition of some Batch Normalization layers
-        self.bn1 = nn.BatchNorm1d(numberOfNeurons)
-        self.bn2 = nn.BatchNorm1d(numberOfNeurons)
-        self.bn3 = nn.BatchNorm1d(numberOfNeurons)
-        self.bn4 = nn.BatchNorm1d(numberOfNeurons)
+        # Batch normalization layers for the hidden layers
+        self.bns = nn.ModuleList([
+            nn.BatchNorm1d(numberOfNeurons) for _ in range(4)
+        ])
 
-        # Definition of some Dropout layers.
-        self.dropout1 = nn.Dropout(dropout)
-        self.dropout2 = nn.Dropout(dropout)
-        self.dropout3 = nn.Dropout(dropout)
-        self.dropout4 = nn.Dropout(dropout)
+        # Dropout layers for the hidden layers
+        self.dropouts = nn.ModuleList([
+            nn.Dropout(dropout) for _ in range(4)
+        ])
 
-        # Xavier initialization for the entire neural network
-        torch.nn.init.xavier_uniform_(self.fc1.weight)
-        torch.nn.init.xavier_uniform_(self.fc2.weight)
-        torch.nn.init.xavier_uniform_(self.fc3.weight)
-        torch.nn.init.xavier_uniform_(self.fc4.weight)
-        torch.nn.init.xavier_uniform_(self.fc5.weight)
+        # Xavier initialization
+        for layer in self.fcs:
+            nn.init.xavier_uniform_(layer.weight)
 
-    def forward(self, input):
+    def forward(self, x):
         """
-        GOAL: Implementing the forward pass of the Deep Neural Network.
+        Forward pass of the DQN model.
 
-        INPUTS: - input: Input of the Deep Neural Network.
+        Args:
+            x (Tensor): Input tensor.
 
-        OUTPUTS: - output: Output of the Deep Neural Network.
+        Returns:
+            Tensor: Output tensor (Q-values for each action).
         """
+        for i in range(4):
+            x = self.fcs[i](x)
+            x = self.bns[i](x)
+            x = F.leaky_relu(x)
+            x = self.dropouts[i](x)
 
-        x = self.dropout1(F.leaky_relu(self.bn1(self.fc1(input))))
-        x = self.dropout2(F.leaky_relu(self.bn2(self.fc2(x))))
-        x = self.dropout3(F.leaky_relu(self.bn3(self.fc3(x))))
-        x = self.dropout4(F.leaky_relu(self.bn4(self.fc4(x))))
-        output = self.fc5(x)
-        return output
+        return self.fcs[-1](x)
 
 
 ###############################################################################
@@ -390,76 +389,71 @@ class TDQN:
         # Retrieve the coefficients required for the normalization
         coefficients = []
         margin = 1
-        # 1. Close price => returns (absolute) => maximum value (absolute)
-        returns = [abs((closePrices[i] - closePrices[i - 1]) / closePrices[i - 1]) for i in range(1, len(closePrices))]
-        coeffs = (0, np.max(returns) * margin)
-        coefficients.append(coeffs)
-        # 2. Low/High prices => Delta prices => maximum value
-        deltaPrice = [abs(highPrices[i] - lowPrices[i]) for i in range(len(lowPrices))]
-        coeffs = (0, np.max(deltaPrice) * margin)
-        coefficients.append(coeffs)
-        # 3. Close/Low/High prices => Close price position => no normalization required
-        coeffs = (0, 1)
-        coefficients.append(coeffs)
-        # 4. Volumes => minimum and maximum values
-        coeffs = (np.min(volumes) / margin, np.max(volumes) * margin)
-        coefficients.append(coeffs)
 
+        # 1. Returns from Close Prices (absolute) => Max value (absolute)
+        returns = [
+            abs((closePrices[i] - closePrices[i - 1]) / closePrices[i - 1])
+            for i in range(1, len(closePrices))
+        ]
+        max_return = np.max(returns) * margin
+        coefficients.append((0, max_return))
+
+        # 2. Delta between High and Low Prices => Max value
+        delta_prices = [abs(high - low) for high, low in zip(highPrices, lowPrices)]
+        max_delta = np.max(delta_prices) * margin
+        coefficients.append((0, max_delta))
+
+        # 3. Close price position within Low/High => Already normalized (0 to 1)
+        coefficients.append((0, 1))
+
+        # 4. Volumes => Min and Max with margin
+        min_volume = np.min(volumes) / margin
+        max_volume = np.max(volumes) * margin
+        coefficients.append((min_volume, max_volume))
         return coefficients
-
+    
+    
     def processState(self, state, coefficients):
-        """
-        GOAL: Process the RL state returned by the environment
-              (appropriate format and normalization).
+        
+        def minmax_normalize(values, coeff):
+            min_val, max_val = coeff
+            if max_val != min_val:
+                return [(x - min_val) / (max_val - min_val) for x in values]
+            return [0 for _ in values]
 
-        INPUTS: - state: RL state returned by the environment.
+        def safe_divide(numerator, denominator, default=0.5):
+            return numerator / denominator if denominator != 0 else default
 
-        OUTPUTS: - state: Processed RL state.
-        """
+        closePrices, lowPrices, highPrices, volumes = state
 
-        # Normalization of the RL state
-        closePrices = [state[0][i] for i in range(len(state[0]))]
-        lowPrices = [state[1][i] for i in range(len(state[1]))]
-        highPrices = [state[2][i] for i in range(len(state[2]))]
-        volumes = [state[3][i] for i in range(len(state[3]))]
+        # 1. Returns from close prices
+        returns = [
+            safe_divide(closePrices[i] - closePrices[i - 1], closePrices[i - 1])
+            for i in range(1, len(closePrices))
+        ]
+        norm_returns = minmax_normalize(returns, coefficients[0])
 
-        # 1. Close price => returns => MinMax normalization
-        returns = [(closePrices[i] - closePrices[i - 1]) / closePrices[i - 1] for i in range(1, len(closePrices))]
-        if coefficients[0][0] != coefficients[0][1]:
-            state[0] = [((x - coefficients[0][0]) / (coefficients[0][1] - coefficients[0][0])) for x in returns]
-        else:
-            state[0] = [0 for x in returns]
-        # 2. Low/High prices => Delta prices => MinMax normalization
-        deltaPrice = [abs(highPrices[i] - lowPrices[i]) for i in range(1, len(lowPrices))]
-        if coefficients[1][0] != coefficients[1][1]:
-            state[1] = [((x - coefficients[1][0]) / (coefficients[1][1] - coefficients[1][0])) for x in deltaPrice]
-        else:
-            state[1] = [0 for x in deltaPrice]
-        # 3. Close/Low/High prices => Close price position => No normalization required
-        closePricePosition = []
-        for i in range(1, len(closePrices)):
-            deltaPrice = abs(highPrices[i] - lowPrices[i])
-            if deltaPrice != 0:
-                item = abs(closePrices[i] - lowPrices[i]) / deltaPrice
-            else:
-                item = 0.5
-            closePricePosition.append(item)
-        if coefficients[2][0] != coefficients[2][1]:
-            state[2] = [((x - coefficients[2][0]) / (coefficients[2][1] - coefficients[2][0])) for x in
-                        closePricePosition]
-        else:
-            state[2] = [0.5 for x in closePricePosition]
-        # 4. Volumes => MinMax normalization
-        volumes = [volumes[i] for i in range(1, len(volumes))]
-        if coefficients[3][0] != coefficients[3][1]:
-            state[3] = [((x - coefficients[3][0]) / (coefficients[3][1] - coefficients[3][0])) for x in volumes]
-        else:
-            state[3] = [0 for x in volumes]
+        # 2. Delta prices from high - low
+        delta_prices = [
+            abs(highPrices[i] - lowPrices[i]) for i in range(1, len(lowPrices))
+        ]
+        norm_deltas = minmax_normalize(delta_prices, coefficients[1])
 
-        # Process the state structure to obtain the appropriate format
-        state = [item for sublist in state for item in sublist]
+        # 3. Close price position in range
+        close_pos = [
+            safe_divide(closePrices[i] - lowPrices[i], highPrices[i] - lowPrices[i])
+            for i in range(1, len(closePrices))
+        ]
+        norm_close_pos = minmax_normalize(close_pos, coefficients[2])
 
-        return state
+        # 4. Volume normalization
+        norm_volumes = minmax_normalize(volumes[1:], coefficients[3])
+
+        # Flatten the processed state
+        processed_state = norm_returns + norm_deltas + norm_close_pos + norm_volumes
+
+        return processed_state
+
 
     def processReward(self, reward):
         """
