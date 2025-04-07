@@ -36,8 +36,8 @@ from TDQN import TDQN
 ###############################################################################
 
 # Variables defining the default trading horizon
-startingDate = '2012-1-1'
-endingDate = '2020-1-1'
+startingDate = '2005-1-1'
+endingDate = '2022-1-1'
 splitingDate = '2018-1-1'
 
 # Variables defining the default observation and state spaces
@@ -67,36 +67,36 @@ fictives = {
 
 # Dictionary listing the 30 stocks considered as testbench
 stocks = {
-    # 'Dow Jones': 'DIA',
+    'Dow Jones': 'DIA',
     'S&P 500': 'SPY',
-    # 'NASDAQ 100': 'QQQ',
-    # 'FTSE 100': 'EZU',
-    # 'Nikkei 225': 'EWJ',
-    # 'Google': 'GOOGL',
-    # 'Apple': 'AAPL',
-    # 'Facebook': 'FB',
-    # 'Amazon': 'AMZN',
-    # 'Microsoft': 'MSFT',
-    # 'Twitter': 'TWTR',
-    # 'Nokia': 'NOK',
-    # 'Philips': 'PHIA.AS',
-    # 'Siemens': 'SIE.DE',
-    # 'Baidu': 'BIDU',
-    # 'Alibaba': 'BABA',
-    # 'Tencent': '0700.HK',
-    # 'Sony': '6758.T',
-    # 'JPMorgan Chase': 'JPM',
-    # 'HSBC': 'HSBC',
-    # 'CCB': '0939.HK',
-    # 'ExxonMobil': 'XOM',
-    # 'Shell': 'RDSA.AS',
-    # 'PetroChina': 'PTR',
-    # 'Tesla': 'TSLA',
-    # 'Volkswagen': 'VOW3.DE',
-    # 'Toyota': '7203.T',
-    # 'Coca Cola': 'KO',
-    # 'AB InBev': 'ABI.BR',
-    # 'Kirin': '2503.T'
+    'NASDAQ 100': 'QQQ',
+    'FTSE 100': 'EZU',
+    'Nikkei 225': 'EWJ',
+    'Google': 'GOOGL',
+    'Apple': 'AAPL',
+    'Facebook': 'FB',
+    'Amazon': 'AMZN',
+    'Microsoft': 'MSFT',
+    'Twitter': 'TWTR',
+    'Nokia': 'NOK',
+    'Philips': 'PHIA.AS',
+    'Siemens': 'SIE.DE',
+    'Baidu': 'BIDU',
+    'Alibaba': 'BABA',
+    'Tencent': '0700.HK',
+    'Sony': '6758.T',
+    'JPMorgan Chase': 'JPM',
+    'HSBC': 'HSBC',
+    'CCB': '0939.HK',
+    'ExxonMobil': 'XOM',
+    'Shell': 'RDSA.AS',
+    'PetroChina': 'PTR',
+    'Tesla': 'TSLA',
+    'Volkswagen': 'VOW3.DE',
+    'Toyota': '7203.T',
+    'Coca Cola': 'KO',
+    'AB InBev': 'ABI.BR',
+    'Kirin': '2503.T'
 }
 
 # Dictionary listing the 5 trading indices considered as testbench
