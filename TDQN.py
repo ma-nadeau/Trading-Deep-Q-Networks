@@ -378,6 +378,9 @@ class TDQN:
         # Initialization of the tensorboard writer
         self.writer = SummaryWriter('runs/' + datetime.datetime.now().strftime("%d/%m/%Y-%H:%M:%S"))
 
+        self.beta_start = 0.4
+        self.beta_frames = 200000  # total steps to reach beta = 1.0
+
     def getNormalizationCoefficients(self, tradingEnv):
         """
         GOAL: Retrieve the coefficients required for the normalization
@@ -540,7 +543,9 @@ class TDQN:
 
             # Sample a batch of experiences from the replay memory
             #state, action, reward, nextState, done = self.replayMemory.sample(batchSize)
-            sample = self.replayMemory.sample(batchSize, beta=0.4)
+            #sample = self.replayMemory.sample(batchSize, beta=0.4)
+            beta = min(1.0, self.beta_start + (1.0 - self.beta_start) * self.iterations / self.beta_frames)
+            sample = self.replayMemory.sample(batchSize, beta=beta)
 
             state = torch.tensor(sample["state"], dtype=torch.float32, device=self.device)
             nextState = torch.tensor(sample["next_state"], dtype=torch.float32, device=self.device)
