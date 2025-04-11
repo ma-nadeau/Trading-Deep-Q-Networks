@@ -34,6 +34,10 @@ from tradingPerformance import PerformanceEstimator
 from dataAugmentation import DataAugmentation
 from tradingEnv import TradingEnv
 
+from dates import startingDate, endingDate, splitingDate
+
+
+
 ###############################################################################
 ################################ Global variables #############################
 ###############################################################################
@@ -78,6 +82,7 @@ GPUNumber = 0
 ###############################################################################
 ############################### Class ReplayMemory ############################
 ###############################################################################
+
 
 class ReplayMemory:
     """
@@ -136,7 +141,9 @@ class ReplayMemory:
                  - done: RL termination signals of the experience batch sampled.
         """
 
-        state, action, reward, nextState, done = zip(*random.sample(self.memory, batchSize))
+        state, action, reward, nextState, done = zip(
+            *random.sample(self.memory, batchSize)
+        )
         return state, action, reward, nextState, done
 
     def __len__(self):
@@ -175,7 +182,9 @@ class NoisyLinear(nn.Module):
 
         self.weight_mu = nn.Parameter(torch.FloatTensor(out_features, in_features))
         self.weight_sigma = nn.Parameter(torch.FloatTensor(out_features, in_features))
-        self.register_buffer("weight_epsilon", torch.FloatTensor(out_features, in_features))
+        self.register_buffer(
+            "weight_epsilon", torch.FloatTensor(out_features, in_features)
+        )
 
         self.bias_mu = nn.Parameter(torch.FloatTensor(out_features))
         self.bias_sigma = nn.Parameter(torch.FloatTensor(out_features))
@@ -210,23 +219,21 @@ class DuelingDQN(nn.Module):
         super(DuelingDQN, self).__init__()
 
         self.feature = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout)
+            nn.Linear(input_dim, hidden_dim), nn.ReLU(), nn.Dropout(dropout)
         )
 
         self.value_stream = nn.Sequential(
             NoisyLinear(hidden_dim, hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
-            NoisyLinear(hidden_dim, 1)
+            NoisyLinear(hidden_dim, 1),
         )
 
         self.advantage_stream = nn.Sequential(
             NoisyLinear(hidden_dim, hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
-            NoisyLinear(hidden_dim, output_dim)
+            NoisyLinear(hidden_dim, output_dim),
         )
 
     def forward(self, x):
@@ -244,10 +251,10 @@ class DuelingDQN(nn.Module):
                 layer.reset_noise()
 
 
-
 ###############################################################################
 ################################ Class TDQN ###################################
 ###############################################################################
+
 
 class TDQN:
     """
@@ -299,10 +306,21 @@ class TDQN:
                                      (Epsilon-Greedy exploration technique).
     """
 
-    def __init__(self, observationSpace, actionSpace, numberOfNeurons=numberOfNeurons, dropout=dropout,
-                 gamma=gamma, learningRate=learningRate, targetNetworkUpdate=targetNetworkUpdate,
-                 epsilonStart=epsilonStart, epsilonEnd=epsilonEnd, epsilonDecay=epsilonDecay,
-                 capacity=capacity, batchSize=batchSize):
+    def __init__(
+        self,
+        observationSpace,
+        actionSpace,
+        numberOfNeurons=numberOfNeurons,
+        dropout=dropout,
+        gamma=gamma,
+        learningRate=learningRate,
+        targetNetworkUpdate=targetNetworkUpdate,
+        epsilonStart=epsilonStart,
+        epsilonEnd=epsilonEnd,
+        epsilonDecay=epsilonDecay,
+        capacity=capacity,
+        batchSize=batchSize,
+    ):
         """
         GOAL: Initializing the RL agent based on the DQN Reinforcement Learning
               algorithm, by setting up the DQN algorithm parameters as well as
@@ -331,7 +349,9 @@ class TDQN:
         random.seed(0)
 
         # Check availability of CUDA for the hardware (CPU or GPU)
-        self.device = torch.device('cuda:' + str(GPUNumber) if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(
+            "cuda:" + str(GPUNumber) if torch.cuda.is_available() else "cpu"
+        )
 
         # Set the general parameters of the DQN algorithm
         self.gamma = gamma
@@ -341,7 +361,7 @@ class TDQN:
         # Set the Experience Replay mechnism
         self.capacity = capacity
         self.batchSize = batchSize
-        #self.replayMemory = ReplayMemory(capacity)
+        # self.replayMemory = ReplayMemory(capacity)
         self.replayMemory = PrioritizedReplayBuffer(
             size=capacity,
             env_dict={
@@ -349,9 +369,9 @@ class TDQN:
                 "next_state": {"shape": observationSpace},
                 "action": {},
                 "reward": {},
-                "done": {}
+                "done": {},
             },
-            alpha=0.5  # Controls prioritization strength
+            alpha=0.5,  # Controls prioritization strength
         )
 
         # Set both the observation and action spaces
@@ -359,24 +379,33 @@ class TDQN:
         self.actionSpace = actionSpace
 
         # Set the two Deep Neural Networks of the DQN algorithm (policy and target)
-        self.policyNetwork = DuelingDQN(observationSpace, actionSpace, numberOfNeurons).to(self.device)
-        self.targetNetwork = DuelingDQN(observationSpace, actionSpace, numberOfNeurons).to(self.device)
+        self.policyNetwork = DuelingDQN(
+            observationSpace, actionSpace, numberOfNeurons
+        ).to(self.device)
+        self.targetNetwork = DuelingDQN(
+            observationSpace, actionSpace, numberOfNeurons
+        ).to(self.device)
         self.targetNetwork.load_state_dict(self.policyNetwork.state_dict())
         self.policyNetwork.eval()
         self.targetNetwork.eval()
 
         # Set the Deep Learning optimizer
-        self.optimizer = optim.Adam(self.policyNetwork.parameters(), lr=learningRate, weight_decay=L2Factor)
+        self.optimizer = optim.Adam(
+            self.policyNetwork.parameters(), lr=learningRate, weight_decay=L2Factor
+        )
 
         # Set the Epsilon-Greedy exploration technique
-        self.epsilonValue = lambda iteration: epsilonEnd + (epsilonStart - epsilonEnd) * math.exp(
-            -1 * iteration / epsilonDecay)
+        self.epsilonValue = lambda iteration: epsilonEnd + (
+            epsilonStart - epsilonEnd
+        ) * math.exp(-1 * iteration / epsilonDecay)
 
         # Initialization of the iterations counter
         self.iterations = 0
 
         # Initialization of the tensorboard writer
-        self.writer = SummaryWriter('runs/' + datetime.datetime.now().strftime("%d/%m/%Y-%H:%M:%S"))
+        self.writer = SummaryWriter(
+            "runs/" + datetime.datetime.now().strftime("%d/%m/%Y-%H:%M:%S")
+        )
 
         self.beta_start = 0.4
         self.beta_frames = 200000  # total steps to reach beta = 1.0
@@ -393,16 +422,19 @@ class TDQN:
 
         # Retrieve the available trading data
         tradingData = tradingEnv.data
-        closePrices = tradingData['Close'].tolist()
-        lowPrices = tradingData['Low'].tolist()
-        highPrices = tradingData['High'].tolist()
-        volumes = tradingData['Volume'].tolist()
+        closePrices = tradingData["Close"].tolist()
+        lowPrices = tradingData["Low"].tolist()
+        highPrices = tradingData["High"].tolist()
+        volumes = tradingData["Volume"].tolist()
 
         # Retrieve the coefficients required for the normalization
         coefficients = []
         margin = 1
         # 1. Close price => returns (absolute) => maximum value (absolute)
-        returns = [abs((closePrices[i] - closePrices[i - 1]) / closePrices[i - 1]) for i in range(1, len(closePrices))]
+        returns = [
+            abs((closePrices[i] - closePrices[i - 1]) / closePrices[i - 1])
+            for i in range(1, len(closePrices))
+        ]
         coeffs = (0, np.max(returns) * margin)
         coefficients.append(coeffs)
         # 2. Low/High prices => Delta prices => maximum value
@@ -435,15 +467,26 @@ class TDQN:
         volumes = [state[3][i] for i in range(len(state[3]))]
 
         # 1. Close price => returns => MinMax normalization
-        returns = [(closePrices[i] - closePrices[i - 1]) / closePrices[i - 1] for i in range(1, len(closePrices))]
+        returns = [
+            (closePrices[i] - closePrices[i - 1]) / closePrices[i - 1]
+            for i in range(1, len(closePrices))
+        ]
         if coefficients[0][0] != coefficients[0][1]:
-            state[0] = [((x - coefficients[0][0]) / (coefficients[0][1] - coefficients[0][0])) for x in returns]
+            state[0] = [
+                ((x - coefficients[0][0]) / (coefficients[0][1] - coefficients[0][0]))
+                for x in returns
+            ]
         else:
             state[0] = [0 for x in returns]
         # 2. Low/High prices => Delta prices => MinMax normalization
-        deltaPrice = [abs(highPrices[i] - lowPrices[i]) for i in range(1, len(lowPrices))]
+        deltaPrice = [
+            abs(highPrices[i] - lowPrices[i]) for i in range(1, len(lowPrices))
+        ]
         if coefficients[1][0] != coefficients[1][1]:
-            state[1] = [((x - coefficients[1][0]) / (coefficients[1][1] - coefficients[1][0])) for x in deltaPrice]
+            state[1] = [
+                ((x - coefficients[1][0]) / (coefficients[1][1] - coefficients[1][0]))
+                for x in deltaPrice
+            ]
         else:
             state[1] = [0 for x in deltaPrice]
         # 3. Close/Low/High prices => Close price position => No normalization required
@@ -456,14 +499,19 @@ class TDQN:
                 item = 0.5
             closePricePosition.append(item)
         if coefficients[2][0] != coefficients[2][1]:
-            state[2] = [((x - coefficients[2][0]) / (coefficients[2][1] - coefficients[2][0])) for x in
-                        closePricePosition]
+            state[2] = [
+                ((x - coefficients[2][0]) / (coefficients[2][1] - coefficients[2][0]))
+                for x in closePricePosition
+            ]
         else:
             state[2] = [0.5 for x in closePricePosition]
         # 4. Volumes => MinMax normalization
         volumes = [volumes[i] for i in range(1, len(volumes))]
         if coefficients[3][0] != coefficients[3][1]:
-            state[3] = [((x - coefficients[3][0]) / (coefficients[3][1] - coefficients[3][0])) for x in volumes]
+            state[3] = [
+                ((x - coefficients[3][0]) / (coefficients[3][1] - coefficients[3][0]))
+                for x in volumes
+            ]
         else:
             state[3] = [0 for x in volumes]
 
@@ -497,7 +545,7 @@ class TDQN:
         """
 
         # Check if an update is required (update frequency)
-        if (self.iterations % targetNetworkUpdate == 0):
+        if self.iterations % targetNetworkUpdate == 0:
             # Transfer the DNN parameters (policy network -> target network)
             self.targetNetwork.load_state_dict(self.policyNetwork.state_dict())
 
@@ -516,7 +564,9 @@ class TDQN:
 
         # Choose the best action based on the RL policy
         with torch.no_grad():
-            tensorState = torch.tensor(state, dtype=torch.float, device=self.device).unsqueeze(0)
+            tensorState = torch.tensor(
+                state, dtype=torch.float, device=self.device
+            ).unsqueeze(0)
             QValues = self.policyNetwork(tensorState).squeeze(0)
             Q, action = QValues.max(0)
             action = action.item()
@@ -542,25 +592,39 @@ class TDQN:
             self.targetNetwork.reset_noise()
 
             # Sample a batch of experiences from the replay memory
-            #state, action, reward, nextState, done = self.replayMemory.sample(batchSize)
-            #sample = self.replayMemory.sample(batchSize, beta=0.4)
-            beta = min(1.0, self.beta_start + (1.0 - self.beta_start) * self.iterations / self.beta_frames)
+            # state, action, reward, nextState, done = self.replayMemory.sample(batchSize)
+            # sample = self.replayMemory.sample(batchSize, beta=0.4)
+            beta = min(
+                1.0,
+                self.beta_start
+                + (1.0 - self.beta_start) * self.iterations / self.beta_frames,
+            )
             sample = self.replayMemory.sample(batchSize, beta=beta)
 
-            state = torch.tensor(sample["state"], dtype=torch.float32, device=self.device)
-            nextState = torch.tensor(sample["next_state"], dtype=torch.float32, device=self.device)
-            action = torch.tensor(sample["action"], dtype=torch.long, device=self.device)
-            reward = torch.tensor(sample["reward"], dtype=torch.float32, device=self.device)
+            state = torch.tensor(
+                sample["state"], dtype=torch.float32, device=self.device
+            )
+            nextState = torch.tensor(
+                sample["next_state"], dtype=torch.float32, device=self.device
+            )
+            action = torch.tensor(
+                sample["action"], dtype=torch.long, device=self.device
+            )
+            reward = torch.tensor(
+                sample["reward"], dtype=torch.float32, device=self.device
+            )
             done = torch.tensor(sample["done"], dtype=torch.float32, device=self.device)
-            weights = torch.tensor(sample["weights"], dtype=torch.float32, device=self.device)
+            weights = torch.tensor(
+                sample["weights"], dtype=torch.float32, device=self.device
+            )
             indexes = sample["indexes"]
 
             # Initialization of Pytorch tensors for the RL experience elements
-            #state = torch.tensor(state, dtype=torch.float, device=self.device)
+            # state = torch.tensor(state, dtype=torch.float, device=self.device)
             ##action = torch.tensor(action, dtype=torch.long, device=self.device)
-            #reward = torch.tensor(reward, dtype=torch.float, device=self.device)
-            #nextState = torch.tensor(nextState, dtype=torch.float, device=self.device)
-            #done = torch.tensor(done, dtype=torch.float, device=self.device)
+            # reward = torch.tensor(reward, dtype=torch.float, device=self.device)
+            # nextState = torch.tensor(nextState, dtype=torch.float, device=self.device)
+            # done = torch.tensor(done, dtype=torch.float, device=self.device)
 
             # Make sure action is a 1D tensor: shape [batch_size]
             if action.ndim > 1:
@@ -577,13 +641,15 @@ class TDQN:
             with torch.no_grad():
                 # Get the best actions from the policy network (Double DQN)
                 nextQ_policy = self.policyNetwork(nextState)
-                nextActions = torch.argmax(nextQ_policy, dim=1, keepdim=True)  # shape: [batch_size, 1]
-
-
+                nextActions = torch.argmax(
+                    nextQ_policy, dim=1, keepdim=True
+                )  # shape: [batch_size, 1]
 
                 # Get Q-values from the target network
                 nextQ_target = self.targetNetwork(nextState)
-                nextQValues = nextQ_target.gather(1, nextActions).squeeze(1)  # shape: [batch_size]
+                nextQValues = nextQ_target.gather(1, nextActions).squeeze(
+                    1
+                )  # shape: [batch_size]
 
                 reward = reward.view(-1)
                 done = done.view(-1)
@@ -592,19 +658,22 @@ class TDQN:
                 # Compute expected Q-values
                 expectedQValues = reward + self.gamma * nextQValues * (1 - done)
 
-            loss = (F.smooth_l1_loss(currentQValues, expectedQValues, reduction='none') * weights).mean()
+            loss = (
+                F.smooth_l1_loss(currentQValues, expectedQValues, reduction="none")
+                * weights
+            ).mean()
 
             # Compute the current Q values returned by the policy network
-           # currentQValues = self.policyNetwork(state).gather(1, action.unsqueeze(1)).squeeze(1)
+            # currentQValues = self.policyNetwork(state).gather(1, action.unsqueeze(1)).squeeze(1)
 
             # Compute the next Q values returned by the target network
-           # with torch.no_grad():
-              #  nextActions = torch.max(self.policyNetwork(nextState), 1)[1]
-              #  nextQValues = self.targetNetwork(nextState).gather(1, nextActions.unsqueeze(1)).squeeze(1)
-              #  expectedQValues = reward + gamma * nextQValues * (1 - done)
+            # with torch.no_grad():
+            #  nextActions = torch.max(self.policyNetwork(nextState), 1)[1]
+            #  nextQValues = self.targetNetwork(nextState).gather(1, nextActions.unsqueeze(1)).squeeze(1)
+            #  expectedQValues = reward + gamma * nextQValues * (1 - done)
 
             # Compute the Huber loss
-           # loss = F.smooth_l1_loss(currentQValues, expectedQValues)
+            # loss = F.smooth_l1_loss(currentQValues, expectedQValues)
 
             # Computation of the gradients
             self.optimizer.zero_grad()
@@ -615,7 +684,9 @@ class TDQN:
             self.replayMemory.update_priorities(indexes, td_errors)
 
             # Gradient Clipping
-            torch.nn.utils.clip_grad_norm_(self.policyNetwork.parameters(), gradientClipping)
+            torch.nn.utils.clip_grad_norm_(
+                self.policyNetwork.parameters(), gradientClipping
+            )
 
             # Perform the Deep Neural Network optimization
             self.optimizer.step()
@@ -626,9 +697,15 @@ class TDQN:
             # Set back the Deep Neural Network in evaluation mode
             self.policyNetwork.eval()
 
-
-    def training(self, trainingEnv, trainingParameters=[],
-                 verbose=False, rendering=False, plotTraining=False, showPerformance=False):
+    def training(
+        self,
+        trainingEnv,
+        trainingParameters=[],
+        verbose=False,
+        rendering=False,
+        plotTraining=False,
+        showPerformance=False,
+    ):
         """
         GOAL: Train the RL trading agent by interacting with its trading environment.
 
@@ -663,17 +740,28 @@ class TDQN:
             # Testing performance
             marketSymbol = trainingEnv.marketSymbol
             startingDate = trainingEnv.endingDate
-            endingDate = '2020-1-1'
-            money = trainingEnv.data['Money'][0]
+            endingDate = "2020-1-1"
+            money = trainingEnv.data["Money"][0]
             stateLength = trainingEnv.stateLength
             transactionCosts = trainingEnv.transactionCosts
-            testingEnv = TradingEnv(marketSymbol, startingDate, endingDate, money, stateLength, transactionCosts)
+            testingEnv = TradingEnv(
+                marketSymbol,
+                startingDate,
+                endingDate,
+                money,
+                stateLength,
+                transactionCosts,
+            )
             performanceTest = []
 
         try:
             # If required, print the training progression
             if verbose:
-                print("Training progression (hardware selected => " + str(self.device) + "):")
+                print(
+                    "Training progression (hardware selected => "
+                    + str(self.device)
+                    + "):"
+                )
 
             # Training phase for the number of episodes specified as parameter
             for episode in tqdm(range(trainingParameters[0]), disable=not (verbose)):
@@ -700,7 +788,7 @@ class TDQN:
                         self.policyNetwork.train()
 
                         # Choose an action according to the RL policy and the current RL state
-                        #action, _, _ = self.chooseActionEpsilonGreedy(state, previousAction)
+                        # action, _, _ = self.chooseActionEpsilonGreedy(state, previousAction)
                         action, _, _ = self.chooseAction(state)
                         # Interact with the environment with the chosen action
                         nextState, reward, done, info = trainingEnvList[i].step(action)
@@ -708,27 +796,27 @@ class TDQN:
                         # Process the RL variables retrieved and insert this new experience into the Experience Replay memory
                         reward = self.processReward(reward)
                         nextState = self.processState(nextState, coefficients)
-                        #self.replayMemory.push(state, action, reward, nextState, done)
+                        # self.replayMemory.push(state, action, reward, nextState, done)
                         self.replayMemory.add(
                             state=np.array(state, dtype=np.float32),
                             action=int(action),
                             reward=float(reward),
                             next_state=np.array(nextState, dtype=np.float32),
-                            done=float(done)
+                            done=float(done),
                         )
 
                         # Trick for better exploration
                         otherAction = int(not bool(action))
-                        otherReward = self.processReward(info['Reward'])
-                        otherNextState = self.processState(info['State'], coefficients)
-                        otherDone = info['Done']
-                        #self.replayMemory.push(state, otherAction, otherReward, otherNextState, otherDone)
+                        otherReward = self.processReward(info["Reward"])
+                        otherNextState = self.processState(info["State"], coefficients)
+                        otherDone = info["Done"]
+                        # self.replayMemory.push(state, otherAction, otherReward, otherNextState, otherDone)
                         self.replayMemory.add(
                             state=np.array(state, dtype=np.float32),
                             action=int(action),
                             reward=float(reward),
                             next_state=np.array(nextState, dtype=np.float32),
-                            done=float(done)
+                            done=float(done),
                         )
 
                         # Execute the DQN learning procedure
@@ -756,14 +844,18 @@ class TDQN:
                     analyser = PerformanceEstimator(trainingEnv.data)
                     performance = analyser.computeSharpeRatio()
                     performanceTrain.append(performance)
-                    self.writer.add_scalar('Training performance (Sharpe Ratio)', performance, episode)
+                    self.writer.add_scalar(
+                        "Training performance (Sharpe Ratio)", performance, episode
+                    )
                     trainingEnv.reset()
                     # Testing set performance
                     testingEnv = self.testing(trainingEnv, testingEnv)
                     analyser = PerformanceEstimator(testingEnv.data)
                     performance = analyser.computeSharpeRatio()
                     performanceTest.append(performance)
-                    self.writer.add_scalar('Testing performance (Sharpe Ratio)', performance, episode)
+                    self.writer.add_scalar(
+                        "Testing performance (Sharpe Ratio)", performance, episode
+                    )
                     testingEnv.reset()
 
         except KeyboardInterrupt:
@@ -782,11 +874,25 @@ class TDQN:
         # If required, plot the training results
         if plotTraining:
             fig = plt.figure()
-            ax = fig.add_subplot(111, ylabel='Performance (Sharpe Ratio)', xlabel='Episode')
+            ax = fig.add_subplot(
+                111, ylabel="Performance (Sharpe Ratio)", xlabel="Episode"
+            )
             ax.plot(performanceTrain)
             ax.plot(performanceTest)
             ax.legend(["Training", "Testing"])
-            plt.savefig(''.join(['Figures/', str(marketSymbol), '_TrainingTestingPerformance', '.png']))
+            plt.savefig(
+                "".join(
+                    [
+                        "Figures/",
+                        str(marketSymbol),
+                        f"_StatingDate: {startingDate}_",
+                        f"SplittingDate: {splitingDate}",
+                        f"_EndingDate: {endingDate}_",
+                        "_TrainingTestingPerformance",
+                        ".png",
+                    ]
+                )
+            )
             # plt.show()
             for i in range(len(trainingEnvList)):
                 self.plotTraining(score[i][:episode], marketSymbol)
@@ -794,7 +900,19 @@ class TDQN:
         # If required, print the strategy performance in a table
         if showPerformance:
             analyser = PerformanceEstimator(trainingEnv.data)
-            analyser.displayPerformance('TDQN')
+            analyser.displayPerformance(
+                "TDQN",
+                "".join(
+                    [
+                        "Figures/",
+                        str(marketSymbol),
+                        f"_StatingDate: {startingDate}_",
+                        f"SplittingDate: {splitingDate}",
+                        f"_EndingDate: {endingDate}_",
+                        "_TrainingPerformance",
+                    ]
+                ),
+            )
 
         # Closing of the tensorboard writer
         self.writer.close()
@@ -854,7 +972,19 @@ class TDQN:
         # If required, print the strategy performance in a table
         if showPerformance:
             analyser = PerformanceEstimator(testingEnv.data)
-            analyser.displayPerformance('TDQN')
+            analyser.displayPerformance(
+                "TDQN",
+                "".join(
+                    [
+                        "Figures/",
+                        str(testingEnv.marketSymbol),
+                        f"_StatingDate: {startingDate}_",
+                        f"SplittingDate: {splitingDate}",
+                        f"_EndingDate: {endingDate}_",
+                        "_TestingPerformance",
+                    ]
+                ),
+            )
 
         return testingEnv
 
@@ -870,9 +1000,21 @@ class TDQN:
         """
 
         fig = plt.figure()
-        ax1 = fig.add_subplot(111, ylabel='Total reward collected', xlabel='Episode')
+        ax1 = fig.add_subplot(111, ylabel="Total reward collected", xlabel="Episode")
         ax1.plot(score)
-        plt.savefig(''.join(['Figures/', str(marketSymbol), 'TrainingResults', '.png']))
+        plt.savefig(
+            "".join(
+                [
+                    "Figures/",
+                    str(marketSymbol),
+                    f"_StatingDate: {startingDate}_",
+                    f"SplittingDate: {splitingDate}",
+                    f"_EndingDate: {endingDate}_",
+                    "TrainingResults",
+                    ".png",
+                ]
+            )
+        )
         # plt.show()
 
     def plotQValues(self, QValues0, QValues1, marketSymbol):
@@ -887,14 +1029,27 @@ class TDQN:
         """
 
         fig = plt.figure()
-        ax1 = fig.add_subplot(111, ylabel='Q values', xlabel='Time')
+        ax1 = fig.add_subplot(111, ylabel="Q values", xlabel="Time")
         ax1.plot(QValues0)
         ax1.plot(QValues1)
-        ax1.legend(['Short', 'Long'])
-        plt.savefig(''.join(['Figures/', str(marketSymbol), '_QValues', '.png']))
+        ax1.legend(["Short", "Long"])
+        plt.savefig(
+            "".join(
+                [
+                    "Figures/",
+                    str(marketSymbol),
+                    f"_StatingDate: {startingDate}_",
+                    f"SplittingDate: {splitingDate}",
+                    f"_EndingDate: {endingDate}" "_QValues",
+                    ".png",
+                ]
+            )
+        )
         # plt.show()
 
-    def plotExpectedPerformance(self, trainingEnv, trainingParameters=[], iterations=10):
+    def plotExpectedPerformance(
+        self, trainingEnv, trainingParameters=[], iterations=10
+    ):
         """
         GOAL: Plot the expected performance of the intelligent DRL trading agent.
 
@@ -922,11 +1077,13 @@ class TDQN:
         # Initialization of the testing trading environment
         marketSymbol = trainingEnv.marketSymbol
         startingDate = trainingEnv.endingDate
-        endingDate = '2020-1-1'
-        money = trainingEnv.data['Money'][0]
+        endingDate = "2020-1-1"
+        money = trainingEnv.data["Money"][0]
         stateLength = trainingEnv.stateLength
         transactionCosts = trainingEnv.transactionCosts
-        testingEnv = TradingEnv(marketSymbol, startingDate, endingDate, money, stateLength, transactionCosts)
+        testingEnv = TradingEnv(
+            marketSymbol, startingDate, endingDate, money, stateLength, transactionCosts
+        )
 
         # Print the hardware selected for the training of the Deep Neural Network (either CPU or GPU)
         print("Hardware selected for training: " + str(self.device))
@@ -937,8 +1094,16 @@ class TDQN:
             for iteration in range(iterations):
 
                 # Print the progression
-                print(''.join(
-                    ["Expected performance evaluation progression: ", str(iteration + 1), "/", str(iterations)]))
+                print(
+                    "".join(
+                        [
+                            "Expected performance evaluation progression: ",
+                            str(iteration + 1),
+                            "/",
+                            str(iterations),
+                        ]
+                    )
+                )
 
                 # Training phase for the number of episodes specified as parameter
                 for episode in tqdm(range(trainingParameters[0])):
@@ -947,11 +1112,17 @@ class TDQN:
                     for i in range(len(trainingEnvList)):
 
                         # Set the initial RL variables
-                        coefficients = self.getNormalizationCoefficients(trainingEnvList[i])
+                        coefficients = self.getNormalizationCoefficients(
+                            trainingEnvList[i]
+                        )
                         trainingEnvList[i].reset()
-                        startingPoint = random.randrange(len(trainingEnvList[i].data.index))
+                        startingPoint = random.randrange(
+                            len(trainingEnvList[i].data.index)
+                        )
                         trainingEnvList[i].setStartingPoint(startingPoint)
-                        state = self.processState(trainingEnvList[i].state, coefficients)
+                        state = self.processState(
+                            trainingEnvList[i].state, coefficients
+                        )
                         previousAction = 0
                         done = 0
                         stepsCounter = 0
@@ -964,32 +1135,36 @@ class TDQN:
                             action, _, _ = self.chooseAction(state)
 
                             # Interact with the environment with the chosen action
-                            nextState, reward, done, info = trainingEnvList[i].step(action)
+                            nextState, reward, done, info = trainingEnvList[i].step(
+                                action
+                            )
 
                             # Process the RL variables retrieved and insert this new experience into the Experience Replay memory
                             reward = self.processReward(reward)
                             nextState = self.processState(nextState, coefficients)
-                            #self.replayMemory.push(state, action, reward, nextState, done)
+                            # self.replayMemory.push(state, action, reward, nextState, done)
                             self.replayMemory.add(
                                 state=np.array(state, dtype=np.float32),
                                 action=int(action),
                                 reward=float(reward),
                                 next_state=np.array(nextState, dtype=np.float32),
-                                done=float(done)
+                                done=float(done),
                             )
 
                             # Trick for better exploration
                             otherAction = int(not bool(action))
-                            otherReward = self.processReward(info['Reward'])
-                            otherDone = info['Done']
-                            otherNextState = self.processState(info['State'], coefficients)
-                            #self.replayMemory.push(state, otherAction, otherReward, otherNextState, otherDone)
+                            otherReward = self.processReward(info["Reward"])
+                            otherDone = info["Done"]
+                            otherNextState = self.processState(
+                                info["State"], coefficients
+                            )
+                            # self.replayMemory.push(state, otherAction, otherReward, otherNextState, otherDone)
                             self.replayMemory.add(
                                 state=np.array(state, dtype=np.float32),
                                 action=int(action),
                                 reward=float(reward),
                                 next_state=np.array(nextState, dtype=np.float32),
-                                done=float(done)
+                                done=float(done),
                             )
 
                             # Execute the DQN learning procedure
@@ -1006,13 +1181,19 @@ class TDQN:
                     trainingEnv = self.testing(trainingEnv, trainingEnv)
                     analyser = PerformanceEstimator(trainingEnv.data)
                     performanceTrain[episode][iteration] = analyser.computeSharpeRatio()
-                    self.writer.add_scalar('Training performance (Sharpe Ratio)', performanceTrain[episode][iteration],
-                                           episode)
+                    self.writer.add_scalar(
+                        "Training performance (Sharpe Ratio)",
+                        performanceTrain[episode][iteration],
+                        episode,
+                    )
                     testingEnv = self.testing(trainingEnv, testingEnv)
                     analyser = PerformanceEstimator(testingEnv.data)
                     performanceTest[episode][iteration] = analyser.computeSharpeRatio()
-                    self.writer.add_scalar('Testing performance (Sharpe Ratio)', performanceTest[episode][iteration],
-                                           episode)
+                    self.writer.add_scalar(
+                        "Testing performance (Sharpe Ratio)",
+                        performanceTest[episode][iteration],
+                        episode,
+                    )
 
                 # Restore the initial state of the intelligent RL agent
                 if iteration < (iterations - 1):
@@ -1020,7 +1201,11 @@ class TDQN:
                     testingEnv.reset()
                     self.policyNetwork.load_state_dict(initialWeights)
                     self.targetNetwork.load_state_dict(initialWeights)
-                    self.optimizer = optim.Adam(self.policyNetwork.parameters(), lr=learningRate, weight_decay=L2Factor)
+                    self.optimizer = optim.Adam(
+                        self.policyNetwork.parameters(),
+                        lr=learningRate,
+                        weight_decay=L2Factor,
+                    )
                     self.replayMemory.reset()
                     self.iterations = 0
                     stepsCounter = 0
@@ -1039,8 +1224,12 @@ class TDQN:
         stdPerformanceTrain = []
         stdPerformanceTest = []
         for episode in range(trainingParameters[0]):
-            expectedPerformanceTrain.append(np.mean(performanceTrain[episode][:iteration]))
-            expectedPerformanceTest.append(np.mean(performanceTest[episode][:iteration]))
+            expectedPerformanceTrain.append(
+                np.mean(performanceTrain[episode][:iteration])
+            )
+            expectedPerformanceTest.append(
+                np.mean(performanceTest[episode][:iteration])
+            )
             stdPerformanceTrain.append(np.std(performanceTrain[episode][:iteration]))
             stdPerformanceTest.append(np.std(performanceTest[episode][:iteration]))
         expectedPerformanceTrain = np.array(expectedPerformanceTrain)
@@ -1051,24 +1240,59 @@ class TDQN:
         # Plot each training/testing iteration performance of the intelligent DRL trading agent
         for i in range(iteration):
             fig = plt.figure()
-            ax = fig.add_subplot(111, ylabel='Performance (Sharpe Ratio)', xlabel='Episode')
+            ax = fig.add_subplot(
+                111, ylabel="Performance (Sharpe Ratio)", xlabel="Episode"
+            )
             ax.plot([performanceTrain[e][i] for e in range(trainingParameters[0])])
             ax.plot([performanceTest[e][i] for e in range(trainingParameters[0])])
             ax.legend(["Training", "Testing"])
-            plt.savefig(''.join(['Figures/', str(marketSymbol), '_TrainingTestingPerformance', str(i + 1), '.png']))
+            plt.savefig(
+                "".join(
+                    [
+                        "Figures/",
+                        str(marketSymbol),
+                        f"_StatingDate: {startingDate}_",
+                        f"SplittingDate: {splitingDate}",
+                        f"_EndingDate: {endingDate}",
+                        "_TrainingTestingPerformance",
+                        str(i + 1),
+                        ".png",
+                    ]
+                )
+            )
             # plt.show()
 
         # Plot the expected performance of the intelligent DRL trading agent
         fig = plt.figure()
-        ax = fig.add_subplot(111, ylabel='Performance (Sharpe Ratio)', xlabel='Episode')
+        ax = fig.add_subplot(111, ylabel="Performance (Sharpe Ratio)", xlabel="Episode")
         ax.plot(expectedPerformanceTrain)
         ax.plot(expectedPerformanceTest)
-        ax.fill_between(range(len(expectedPerformanceTrain)), expectedPerformanceTrain - stdPerformanceTrain,
-                        expectedPerformanceTrain + stdPerformanceTrain, alpha=0.25)
-        ax.fill_between(range(len(expectedPerformanceTest)), expectedPerformanceTest - stdPerformanceTest,
-                        expectedPerformanceTest + stdPerformanceTest, alpha=0.25)
+        ax.fill_between(
+            range(len(expectedPerformanceTrain)),
+            expectedPerformanceTrain - stdPerformanceTrain,
+            expectedPerformanceTrain + stdPerformanceTrain,
+            alpha=0.25,
+        )
+        ax.fill_between(
+            range(len(expectedPerformanceTest)),
+            expectedPerformanceTest - stdPerformanceTest,
+            expectedPerformanceTest + stdPerformanceTest,
+            alpha=0.25,
+        )
         ax.legend(["Training", "Testing"])
-        plt.savefig(''.join(['Figures/', str(marketSymbol), '_TrainingTestingExpectedPerformance', '.png']))
+        plt.savefig(
+            "".join(
+                [
+                    "Figures/",
+                    str(marketSymbol),
+                    f"_StatingDate: {startingDate}_",
+                    f"SplittingDate: {splitingDate}",
+                    f"_EndingDate: {endingDate}",
+                    "_TrainingTestingExpectedPerformance",
+                    ".png",
+                ]
+            )
+        )
         # plt.show()
 
         # Closing of the tensorboard writer
@@ -1096,7 +1320,9 @@ class TDQN:
         OUTPUTS: /
         """
 
-        self.policyNetwork.load_state_dict(torch.load(fileName, map_location=self.device))
+        self.policyNetwork.load_state_dict(
+            torch.load(fileName, map_location=self.device)
+        )
         self.targetNetwork.load_state_dict(self.policyNetwork.state_dict())
 
     def plotEpsilonAnnealing(self):
@@ -1113,5 +1339,16 @@ class TDQN:
         plt.plot([self.epsilonValue(i) for i in range(10 * epsilonDecay)])
         plt.xlabel("Iterations")
         plt.ylabel("Epsilon value")
-        plt.savefig(''.join(['Figures/', 'EpsilonAnnealing', '.png']))
+        plt.savefig(
+            "".join(
+                [
+                    "Figures/",
+                    f"_StatingDate: {startingDate}_",
+                    f"SplittingDate: {splitingDate}",
+                    f"_EndingDate: {endingDate}_",
+                    "EpsilonAnnealing",
+                    ".png",
+                ]
+            )
+        )
         # plt.show()

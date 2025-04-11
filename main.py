@@ -39,10 +39,10 @@ if(__name__ == '__main__'):
     # Training and testing of the trading strategy specified for the stock (market) specified
     simulator.simulateNewStrategy('TDQN', stock, numberOfEpisodes=50, showPerformance=True, saveStrategy=False)
     
-    #simulator.displayTestbench()
+    # simulator.displayTestbench()
     # simulator.analyseTimeSeries(stock)
     # simulator.simulateNewStrategy(strategy, stock, saveStrategy=False)
-    #simulator.simulateExistingStrategy('TDQN', stock)
-   # simulator.evaluateStrategy('TDQN', saveStrategy=False)
-   # simulator.evaluateStock('Apple')
+    # simulator.simulateExistingStrategy('TDQN', stock)
+    # simulator.evaluateStrategy('TDQN', saveStrategy=False)
+    # simulator.evaluateStock('Apple')
     

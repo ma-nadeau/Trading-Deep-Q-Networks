@@ -323,7 +323,7 @@ class PerformanceEstimator:
         return self.performanceTable
 
 
-    def displayPerformance(self, name):
+    def displayPerformance(self, name, filename):
         """
         GOAL: Compute and display the entire set of performance indicators
               in a table.
@@ -341,4 +341,8 @@ class PerformanceEstimator:
         headers = ["Performance Indicator", name]
         tabulation = tabulate(self.performanceTable, headers, tablefmt="fancy_grid", stralign="center")
         print(tabulation)
+        
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(tabulation)
+        
     

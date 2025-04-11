@@ -202,6 +202,7 @@ class YahooFinance:
         print('Data processed:', self.data)
         return self.data
 
+   
 
     def processDataframe(self, dataframe):
         """
@@ -212,16 +213,34 @@ class YahooFinance:
         OUTPUTS:    - dataframe: Processed Pandas dataframe.
         """
         
-        # Remove useless columns
-        dataframe['Close'] = dataframe['Adj Close']
-        del dataframe['Adj Close']
+        # # Remove useless columns
+        # dataframe['Close'] = dataframe['Adj Close']
+        # del dataframe['Adj Close']
         
-        # Adapt the dataframe index and column names
-        dataframe.index.names = ['Timestamp']
-        dataframe = dataframe[['Open', 'High', 'Low', 'Close', 'Volume']]
+        # # Adapt the dataframe index and column names
+        # dataframe.index.names = ['Timestamp']
+        # dataframe = dataframe[['Open', 'High', 'Low', 'Close', 'Volume']]
 
+        # return dataframe
+          # Reset index to move timestamp into a column
+        dataframe = dataframe.reset_index()
+
+        # Flatten column levels if multi-indexed
+        if isinstance(dataframe.columns, pd.MultiIndex):
+            dataframe.columns = dataframe.columns.get_level_values(0)
+
+        # Replace 'Close' with 'Adj Close' if it exists
+        if 'Adj Close' in dataframe.columns:
+            dataframe['Close'] = dataframe['Adj Close']
+            dataframe.drop(columns=['Adj Close'], inplace=True)
+
+        # Ensure column order and names
+        dataframe = dataframe[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
+        dataframe.columns = ['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume']
+
+        dataframe.set_index('Timestamp', inplace=True)
+        
         return dataframe
-
 
     
 ###############################################################################
@@ -267,4 +286,29 @@ class CSVHandler:
                            header=0,
                            index_col='Timestamp',
                            parse_dates=True)
+        
     
+    def replace_csv_header(self, filepath, new_header='Timestamp,Open,High,Low,Close,Volume', skip_lines=3, output_path=None):
+        """
+        Replaces the first `skip_lines` of a CSV file with `new_header`.
+        
+        Args:
+            filepath (str): Path to the original CSV file.
+            new_header (str): The new header line (without newline at end).
+            skip_lines (int): Number of lines to skip at the beginning.
+            output_path (str, optional): Path to save the modified file. 
+                                        If None, overwrites the original file.
+        """
+        output_path = output_path or filepath
+    
+        with open(filepath, 'r') as f:
+
+            lines = f.readlines()
+            if lines[0].strip() == new_header.strip():
+                return  # Do nothing if the first line is already the new header
+            lines = lines[skip_lines:]
+
+        with open(output_path, 'w') as f:
+            f.write(new_header.strip() + '\n')
+            f.writelines(lines)
+        

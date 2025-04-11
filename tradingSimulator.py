@@ -36,9 +36,12 @@ from TDQN import TDQN
 ###############################################################################
 
 # Variables defining the default trading horizon
-startingDate = '2005-1-1'
-endingDate = '2022-1-1'
-splitingDate = '2018-1-1'
+# startingDate = '2005-1-1'
+# endingDate = '2022-1-1'
+# splitingDate = '2018-1-1'
+
+from dates import startingDate, endingDate, splitingDate
+
 
 # Variables defining the default observation and state spaces
 stateLength = 30
@@ -96,7 +99,8 @@ stocks = {
     'Toyota': '7203.T',
     'Coca Cola': 'KO',
     'AB InBev': 'ABI.BR',
-    'Kirin': '2503.T'
+    'Kirin': '2503.T',
+    'British Petroleum Company' : 'BP',
 }
 
 # Dictionary listing the 5 trading indices considered as testbench
@@ -134,7 +138,8 @@ companies = {
     'Toyota': '7203.T',
     'Coca Cola': 'KO',
     'AB InBev': 'ABI.BR',
-    'Kirin': '2503.T'
+    'Kirin': '2503.T',
+    'British Petroleum Company' : 'BP',
 }
 
 # Dictionary listing the classical trading strategies supported
@@ -315,7 +320,7 @@ class TradingSimulator:
         # Generation of the two legends and plotting
         ax1.legend(["Price", "Long", "Short", "Train/Test separation"])
         ax2.legend(["Capital", "Long", "Short", "Train/Test separation"])
-        plt.savefig(''.join(['Figures/', str(trainingEnv.marketSymbol), '_TrainingTestingRendering', '.png']))
+        plt.savefig(''.join(['Figures/', str(trainingEnv.marketSymbol), f"_StatingDate: {startingDate}_", f"SplittingDate: {splitingDate}" , f"_EndingDate: {endingDate}_" ,'_TrainingTestingRendering', '.png']))
         # plt.show()
 
     def simulateNewStrategy(self, strategyName, stockName,
