@@ -3,6 +3,9 @@
 """
 Goal: Downloading financial data (related to stock markets) from diverse sources
       (Alpha Vantage, Yahoo Finance).
+      
+This code was expanded/modified based on the original code from the following authors:
+
 Authors: Thibaut Théate and Damien Ernst
 Institution: University of Liège
 """

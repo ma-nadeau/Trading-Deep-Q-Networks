@@ -1,7 +1,13 @@
 # coding=utf-8
 
 """
+
+
+
 Goal: Implement a trading environment compatible with OpenAI Gym.
+
+This code was expanded/modified based on the original code from the following authors:
+
 Authors: Thibaut Théate and Damien Ernst
 Institution: University of Liège
 """
