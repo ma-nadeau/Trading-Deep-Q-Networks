@@ -101,6 +101,9 @@ stocks = {
     'AB InBev': 'ABI.BR',
     'Kirin': '2503.T',
     'British Petroleum Company' : 'BP',
+    'Charles River' :'CRL',
+    'Warner Bros Discovery': 'WBD',
+    
 }
 
 # Dictionary listing the 5 trading indices considered as testbench
@@ -140,6 +143,8 @@ companies = {
     'AB InBev': 'ABI.BR',
     'Kirin': '2503.T',
     'British Petroleum Company' : 'BP',
+    'Charles River' :'CRL',
+    'Warner Bros Discovery': 'WBD',
 }
 
 # Dictionary listing the classical trading strategies supported
