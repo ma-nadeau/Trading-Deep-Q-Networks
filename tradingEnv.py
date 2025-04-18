@@ -546,7 +546,7 @@ class TradingEnv(gym.Env):
         plt.savefig(
             "".join(
                 [
-                    "Figures/",
+                    "Figures_AC/",
                     str(self.marketSymbol),
                     f"_StatingDate: {startingDate}_",
                     f"SplittingDate: {splitingDate}",
