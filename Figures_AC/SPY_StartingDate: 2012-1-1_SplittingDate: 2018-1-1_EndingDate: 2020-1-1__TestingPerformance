@@ -1,23 +1,23 @@
 ╒═══════════════════════════╤════════════════╕
 │   Performance Indicator   │  TActorCritic  │
 ╞═══════════════════════════╪════════════════╡
-│    Profit & Loss (P&L)    │     121239     │
+│    Profit & Loss (P&L)    │     -1557      │
 ├───────────────────────────┼────────────────┤
-│     Annualized Return     │     10.68%     │
+│     Annualized Return     │     0.20%      │
 ├───────────────────────────┼────────────────┤
-│   Annualized Volatility   │     11.93%     │
+│   Annualized Volatility   │     14.06%     │
 ├───────────────────────────┼────────────────┤
-│       Sharpe Ratio        │     1.172      │
+│       Sharpe Ratio        │     0.014      │
 ├───────────────────────────┼────────────────┤
-│       Sortino Ratio       │     1.552      │
+│       Sortino Ratio       │     0.019      │
 ├───────────────────────────┼────────────────┤
-│     Maximum Drawdown      │     13.02%     │
+│     Maximum Drawdown      │     20.53%     │
 ├───────────────────────────┼────────────────┤
-│ Maximum Drawdown Duration │    143 days    │
+│ Maximum Drawdown Duration │    65 days     │
 ├───────────────────────────┼────────────────┤
-│       Profitability       │     85.71%     │
+│       Profitability       │     39.73%     │
 ├───────────────────────────┼────────────────┤
-│ Ratio Average Profit/Loss │     8.124      │
+│ Ratio Average Profit/Loss │     1.466      │
 ├───────────────────────────┼────────────────┤
-│         Skewness          │     -0.311     │
+│         Skewness          │     -0.053     │
 ╘═══════════════════════════╧════════════════╛

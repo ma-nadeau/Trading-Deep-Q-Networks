@@ -56,7 +56,7 @@ class Critic(nn.Module):
 
 
 class TActorCritic:
-    def __init__(self, observationSpace, actionSpace, hidden_dim=512, dropout=0.2, gamma=0.4, lr=0.0001):
+    def __init__(self, observationSpace, actionSpace, hidden_dim=512, dropout=0.2, gamma=0.4, lr=0.00005):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
         self.actor = Actor(observationSpace, actionSpace, hidden_dim, dropout).to(self.device)
@@ -76,7 +76,7 @@ class TActorCritic:
         action = dist.sample()
         return action.item(), dist.log_prob(action), dist.entropy()
 
-    def learn(self, state, action_log_prob, reward, next_state, done):
+    def learn(self, state, action_log_prob, reward, next_state, done, entropy):
         state_tensor = torch.tensor(state, dtype=torch.float, device=self.device).unsqueeze(0)
         next_state_tensor = torch.tensor(next_state, dtype=torch.float, device=self.device).unsqueeze(0)
         reward_tensor = torch.tensor([reward], dtype=torch.float, device=self.device)
@@ -87,7 +87,7 @@ class TActorCritic:
         target = reward_tensor + self.gamma * next_value * (1 - done_tensor)
         advantage = target - value
 
-        actor_loss = -action_log_prob * advantage.detach()
+        actor_loss = -action_log_prob * advantage.detach()  - 0.001 * entropy
         critic_loss = F.smooth_l1_loss(value, target.detach())
 
         self.optimizer_actor.zero_grad()
@@ -98,8 +98,10 @@ class TActorCritic:
         critic_loss.backward()
         self.optimizer_critic.step()
 
+
+
     def processReward(self, reward):
-        return np.tanh(reward)
+        return np.sign(reward) * np.log1p(abs(reward))
 
     def training(self, env, trainingParameters=[], verbose=True, rendering=False, plotTraining=True, showPerformance=True):
         episodes = trainingParameters[0] if trainingParameters else 50
@@ -120,16 +122,19 @@ class TActorCritic:
         for episode in tqdm(range(episodes), disable=not verbose):
             for idx, env_i in enumerate(envList):
                 coeffs = self.getNormalizationCoefficients(env_i)
-                state = self.processState(env_i.reset(), coeffs)
+                env_i.reset()
+                startingPoint = random.randrange(len(env_i.data.index))
+                env_i.setStartingPoint(startingPoint)
+                state = self.processState(env_i.state, coeffs)
                 done = False
                 totalReward = 0
 
                 while not done:
-                    action, log_prob, _ = self.chooseAction(state)
+                    action, log_prob, entropy = self.chooseAction(state)
                     next_state_raw, reward, done, info = env_i.step(action)
                     next_state = self.processState(next_state_raw, coeffs)
                     reward = self.processReward(reward)
-                    self.learn(state, log_prob, reward, next_state, done)
+                    self.learn(state, log_prob, reward, next_state, done,entropy)
                     state = next_state
                     totalReward += reward
 
@@ -146,6 +151,12 @@ class TActorCritic:
             sharpe_test = analyser.computeSharpeRatio()
             performanceTest.append(sharpe_test)
             self.writer.add_scalar('Testing performance (Sharpe Ratio)', sharpe_test, episode)
+
+            if episode % 10 == 0:  # print every 10 episodes
+                state_tensor = torch.tensor(state, dtype=torch.float, device=self.device).unsqueeze(0)
+                with torch.no_grad():
+                    probs = self.actor(state_tensor).squeeze(0).cpu().numpy()
+                print(f"[Episode {episode}] Action probs: {probs}")
 
         if plotTraining:
             fig = plt.figure()
@@ -305,11 +316,11 @@ class TActorCritic:
                     state = self.processState(env_i.reset(), coeffs)
                     done = False
                     while not done:
-                        action, log_prob, _ = self.chooseAction(state)
+                        action, log_prob, entropy = self.chooseAction(state)
                         next_state_raw, reward, done, info = env_i.step(action)
                         next_state = self.processState(next_state_raw, coeffs)
                         reward = self.processReward(reward)
-                        self.learn(state, log_prob, reward, next_state, done)
+                        self.learn(state, log_prob, reward, next_state, done,entropy)
                         state = next_state
 
                 env_eval = self.testing(trainingEnv, trainingEnv)
@@ -327,8 +338,8 @@ class TActorCritic:
                 testingEnv.reset()
                 self.actor.load_state_dict(initActor)
                 self.critic.load_state_dict(initCritic)
-                self.optimizer_actor = optim.Adam(self.actor.parameters(), lr=0.0001)
-                self.optimizer_critic = optim.Adam(self.critic.parameters(), lr=0.0001)
+                self.optimizer_actor = optim.Adam(self.actor.parameters(), lr=0.00005)
+                self.optimizer_critic = optim.Adam(self.critic.parameters(), lr=0.00005)
 
         expectedTrain = performanceTrain.mean(axis=1)
         expectedTest = performanceTest.mean(axis=1)
