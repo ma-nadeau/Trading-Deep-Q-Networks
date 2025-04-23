@@ -489,7 +489,7 @@ class TradingEnv(gym.Env):
         # Return the trading environment feedback to the RL trading agent
         return self.state, self.reward, self.done, self.info
 
-    def render(self):
+    def render(self,strat='TQDN'):
         """
         GOAL: Illustrate graphically the trading activity, by plotting
               both the evolution of the stock market price and the
@@ -543,19 +543,34 @@ class TradingEnv(gym.Env):
         # Generation of the two legends and plotting
         ax1.legend(["Price", "Long", "Short"])
         ax2.legend(["Capital", "Long", "Short"])
-        plt.savefig(
-            "".join(
-                [
-                    "Figures_AC/",
-                    str(self.marketSymbol),
-                    f"_StatingDate: {startingDate}_",
-                    f"SplittingDate: {splitingDate}",
-                    f"_EndingDate: {endingDate}_",
-                    "_Rendering",
-                    ".png",
-                ]
+        if strat == 'TAC':
+            plt.savefig(
+                "".join(
+                    [
+                        "Figures_AC/",
+                        str(self.marketSymbol),
+                        f"_StatingDate: {startingDate}_",
+                        f"SplittingDate: {splitingDate}",
+                        f"_EndingDate: {endingDate}_",
+                        "_Rendering",
+                        ".png",
+                    ]
+                )
             )
-        )
+        else:
+            plt.savefig(
+                "".join(
+                    [
+                        "Figures/",
+                        str(self.marketSymbol),
+                        f"_StatingDate: {startingDate}_",
+                        f"SplittingDate: {splitingDate}",
+                        f"_EndingDate: {endingDate}_",
+                        "_Rendering",
+                        ".png",
+                    ]
+                )
+            )
         # plt.show()
 
     def setStartingPoint(self, startingPoint):

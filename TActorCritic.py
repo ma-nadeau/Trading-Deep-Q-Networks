@@ -182,7 +182,7 @@ class TActorCritic:
                 ),)
 
         if rendering:
-            env.render()
+            env.render('TAC')
 
         self.writer.close()
         return env
@@ -205,7 +205,7 @@ class TActorCritic:
             state = self.processState(next_state, coeffs)
 
         if rendering:
-            testEnv.render()
+            testEnv.render('TAC')
 
         if showPerformance:
             analyser = PerformanceEstimator(testEnv.data)
