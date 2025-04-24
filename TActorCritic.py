@@ -3,6 +3,9 @@
 """
 Goal: Implementing a custom enhanced version of the Actor-Critic algorithm specialized
       for algorithmic trading.
+
+Note: This code was expanded/modified based on the original code from the following authors:
+
 Authors: Thibaut Théate and Damien Ernst (Modified for Actor-Critic)
 Institution: University of Liège
 """
