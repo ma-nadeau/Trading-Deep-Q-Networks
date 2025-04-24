@@ -1,55 +1,35 @@
 # An Application of Deep Reinforcement Learning to Algorithmic Trading
-Experimental code supporting the results presented in the scientific research paper:
-> Thibaut Théate and Damien Ernst. "An Application of Deep Reinforcement Learning to Algorithmic Trading." (2020).
-> [[arxiv]](https://arxiv.org/abs/2004.06627)
+
+This codebase builds upon the original implementation available at https://github.com/ThibautTheate/An-Application-of-Deep-Reinforcement-Learning-to-Algorithmic-Trading.
+
+It supports and extends the experimental framework presented in the following research paper:
+
+> Thibaut Théate and Damien Ernst.  
+> *An Application of Deep Reinforcement Learning to Algorithmic Trading* (2020).  
+> https://arxiv.org/abs/2004.06627
+
+As explained in the report, the modified, improved, and fixed files are: `TDQN.py`, `dataDownloader.py`, `main.py`, `tradingEnv.py`, and `tradingPerformance.py`.
+
+Additionally, the file `TActorCritic.py` implements a new algorithm (reusing the `TDQN.py` as template) that was not included in the original report.
 
 
-
-# Dependencies
+## Dependencies
 
 The dependencies are listed in the text file "requirements.txt":
-* Python 3.7.4
-* Pytorch 1.5.0
-* Tensorboard
-* Gym
-* Numpy
-* Pandas
-* Matplotlib
-* Scipy
-* Seaborn
-* Statsmodels
-* Requests
-* Pandas-datareader
-* TQDM
-* Tabulate
 
+## Usage
 
+To run the code, execute the `main.py` file.
 
+### Selecting an Algorithm 
+To run a different algorithm, modify line 29 in `main.py` by changing the value of `default='TActorCritic'` to the algorithm you want to run. The two available options are:
+- `'TDQN'`
+- `'TActorCritic'`
 
-# Usage
+### Changing Company or Index
+To run the model on a different stock or index, change the value of `default='S&P 500'` to the name of the desired stock or index (e.g., `'Apple'`).
 
-Simulating (training and testing) a chosen supported algorithmic trading strategy on a chosen supported stock is performed by running the following command:
+- Note: The full list of available options can be found in the dictionaries: `companies`, `indices`, and `stocks` in the top of the file `tradingSimulator.py`.
 
-```bash
-python main.py -strategy STRATEGY -stock STOCK
-```
-
-with:
-* STRATEGY being the name of the trading strategy (by default TDQN),
-* STOCK being the name of the stock (by default Apple).
-
-The performance of this algorithmic trading policy will be automatically displayed in the terminal, and some graphs will be generated and stored in the folder named "Figures".
-
-
-
-# Citation
-
-If you make use of this experimental code, please cite the associated research paper:
-
-```
-@inproceedings{Theate2020,
-  title={An Aplication of Deep Reinforcement Learning to Algorithmic Trading},
-  author={Theate, Thibaut and Ernst, Damien},
-  year={2020}
-}
-```
+### Changing Dates
+If you want to change the date range, modify the values in the `dates.py` file.
