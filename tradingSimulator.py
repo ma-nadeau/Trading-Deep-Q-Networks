@@ -30,6 +30,7 @@ from tradingEnv import TradingEnv
 from tradingPerformance import PerformanceEstimator
 from timeSeriesAnalyser import TimeSeriesAnalyser
 from TDQN import TDQN
+from TActorCritic import TActorCritic
 
 ###############################################################################
 ################################ Global variables #############################
@@ -157,7 +158,8 @@ strategies = {
 
 # Dictionary listing the AI trading strategies supported
 strategiesAI = {
-    'TDQN': 'TDQN'
+    'TDQN': 'TDQN',
+    'TActorCritic': 'TActorCritic'
 }
 
 
@@ -190,7 +192,7 @@ class TradingSimulator:
                                 on a certain stock of the testbench.
     """
 
-    def displayTestbench(self, startingDate=startingDate, endingDate=endingDate):
+    def displayTestbench(self, startingDate=startingDate, Date=endingDate):
         """
         GOAL: Display consecutively all the stocks included in the
               testbench (trading indices and companies).
@@ -273,7 +275,7 @@ class TradingSimulator:
         analyser.stationarityAnalysis()
         analyser.cyclicityAnalysis()
 
-    def plotEntireTrading(self, trainingEnv, testingEnv):
+    def plotEntireTrading(self, trainingEnv, testingEnv,strategyName):
         """
         GOAL: Plot the entire trading activity, with both the training
               and testing phases rendered on the same graph for
@@ -325,7 +327,11 @@ class TradingSimulator:
         # Generation of the two legends and plotting
         ax1.legend(["Price", "Long", "Short", "Train/Test separation"])
         ax2.legend(["Capital", "Long", "Short", "Train/Test separation"])
-        plt.savefig(''.join(['Figures/', str(trainingEnv.marketSymbol), f"_StatingDate: {startingDate}_", f"SplittingDate: {splitingDate}" , f"_EndingDate: {endingDate}_" ,'_TrainingTestingRendering', '.png']))
+        if strategyName == 'TActorCritic':
+            plt.savefig(''.join(['Figures_AC/', str(trainingEnv.marketSymbol), f"_StartingDate: {startingDate}_", f"SplittingDate: {splitingDate}" , f"_EndingDate: {endingDate}_" ,'_TrainingTestingRendering', '.png']))
+        else:
+            plt.savefig(''.join(['Figures/', str(trainingEnv.marketSymbol), f"_StartingDate: {startingDate}_", f"SplittingDate: {splitingDate}" , f"_EndingDate: {endingDate}_" ,'_TrainingTestingRendering', '.png']))
+
         # plt.show()
 
     def simulateNewStrategy(self, strategyName, stockName,
@@ -437,7 +443,7 @@ class TradingSimulator:
 
         # Show the entire unified rendering of the training and testing phases
         if rendering:
-            self.plotEntireTrading(trainingEnv, testingEnv)
+            self.plotEntireTrading(trainingEnv, testingEnv,strategyName)
 
         # 4. TERMINATION PHASE
 
@@ -553,7 +559,7 @@ class TradingSimulator:
 
         # Show the entire unified rendering of the training and testing phases
         if rendering:
-            self.plotEntireTrading(trainingEnv, testingEnv)
+            self.plotEntireTrading(trainingEnv, testingEnv,strategyName)
 
         return tradingStrategy, trainingEnv, testingEnv
 
